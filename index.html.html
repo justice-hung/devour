@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>吞噬・深淵</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Mono:wght@400;700&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+/* =========================================================
+   顏色設定：淺色模式（磷光紙）／深色模式（終端機黑底綠字）
+   ========================================================= */
+:root{
+  --bg:#e6eee3; --panel:#d9e4d5; --line:#9db59f; --text:#123d22; --dim:#4f7559; --hi:#06501f;
+  --red:#b0123a; --blue:#1b5a8c; --gold:#7d5800; --purple:#6a2d8f; --pink:#983a69;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#000; --panel:#04110a; --line:#17502a; --text:#6dff9a; --dim:#2f8a4c; --hi:#c4ffd5;
+    --red:#ff5a74; --blue:#7fd0ff; --gold:#ffd166; --purple:#c58bff; --pink:#ff8fc8;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#000; --panel:#04110a; --line:#17502a; --text:#6dff9a; --dim:#2f8a4c; --hi:#c4ffd5;
+  --red:#ff5a74; --blue:#7fd0ff; --gold:#ffd166; --purple:#c58bff; --pink:#ff8fc8;
+  color-scheme: dark;
+}
+:root{ box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px); }
+*,*::before,*::after{ box-sizing:inherit; }
+html{ height:100%; scroll-padding-top:env(safe-area-inset-top,0px); background:var(--bg); }
+body{
+  height:100%; margin:0; background:var(--bg); color:var(--text);
+  font-family:'Noto Sans Mono','Noto Sans TC',ui-monospace,Menlo,'PingFang TC','Microsoft JhengHei',monospace;
+  font-size:15px; line-height:1.6;
+}
+#app{ height:100%; max-width:760px; margin:0 auto; padding:10px 12px; display:flex; flex-direction:column; gap:8px; }
+
+/* ---------- 狀態列 ---------- */
+#status{ border:1px solid var(--line); padding:8px 10px; font-size:13.5px; }
+.row{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; flex-wrap:wrap; }
+.form{ font-weight:700; font-size:15.5px; color:var(--hi); }
+.bars{ margin-top:4px; }
+.bar{ white-space:pre; overflow-x:auto; }
+.bar .lbl{ display:inline-block; width:2.6em; color:var(--dim); }
+.stats,.genes{ color:var(--dim); margin-top:2px; }
+.stats b,.genes b{ color:var(--text); font-weight:400; }
+.mini{ background:none; border:1px solid var(--line); color:var(--dim); font:inherit; font-size:12.5px; padding:2px 8px; cursor:pointer; }
+.mini:hover{ color:var(--text); border-color:var(--text); }
+
+/* ---------- 日誌 ---------- */
+#log{ flex:1; min-height:0; overflow-y:auto; padding:6px 2px; font-size:14.5px; line-height:1.7; }
+#log p{ margin:0 0 3px; animation:in .22s ease-out; }
+@keyframes in{ from{ opacity:0; } to{ opacity:1; } }
+.cmd{ color:var(--dim); margin-top:10px !important; }
+.good{ color:var(--hi); }
+.bad{ color:var(--red); }
+.warn{ color:var(--gold); }
+.info{ color:var(--blue); }
+.gene{ color:var(--purple); }
+.omen{ color:var(--pink); font-style:italic; }
+.sys{ color:var(--dim); text-align:center; letter-spacing:.2em; }
+.dim{ color:var(--dim); }
+
+/* ---------- 屬性顏色 ---------- */
+.el-none{ color:var(--dim); } .el-flesh{ color:var(--red); } .el-shell{ color:var(--gold); }
+.el-crystal{ color:var(--blue); } .el-void{ color:var(--purple); } .el-spore{ color:var(--pink); }
+
+/* ---------- 行動按鈕 ---------- */
+#actions{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
+@media (min-width:600px){ #actions{ grid-template-columns:repeat(3,minmax(0,1fr)); } }
+.act{
+  background:transparent; border:1px solid var(--line); color:var(--text); font:inherit;
+  text-align:left; padding:8px 10px; min-height:46px; cursor:pointer;
+}
+.act:hover:not(:disabled){ background:var(--panel); border-color:var(--text); }
+.act:disabled{ opacity:.38; cursor:not-allowed; }
+.act .k{ color:var(--dim); margin-right:6px; }
+.act .sub{ display:block; font-size:12px; color:var(--dim); }
+.act.wide{ grid-column:1/-1; }
+button:focus-visible{ outline:2px solid var(--hi); outline-offset:2px; }
+
+/* ---------- 全螢幕面板（標題、進化、結算） ---------- */
+.ov{
+  position:fixed; inset:0; z-index:20; background:var(--bg); overflow-y:auto; display:none;
+  padding:calc(env(safe-area-inset-top,0px) + 18px) 16px calc(env(safe-area-inset-bottom,0px) + 18px);
+}
+.ov.show{ display:block; }
+.ov-in{ max-width:620px; margin:0 auto; }
+.ov h2{ font-family:'Noto Sans TC',sans-serif; font-weight:900; font-size:26px; margin:6px 0 4px; color:var(--hi); }
+.ov p{ margin:6px 0; }
+.ov .note{ color:var(--dim); font-size:13.5px; }
+.card{
+  display:block; width:100%; text-align:left; background:transparent; color:var(--text); font:inherit;
+  border:1px solid var(--line); padding:12px; margin:10px 0; cursor:pointer;
+}
+.card:hover{ background:var(--panel); border-color:var(--text); }
+.card .t{ font-weight:700; font-size:16px; }
+.card .d{ color:var(--dim); font-size:13.5px; margin-top:4px; }
+.btns{ display:flex; flex-direction:column; gap:8px; margin-top:16px; }
+.btns .act{ text-align:center; }
+.title-word{
+  font-family:'Noto Sans TC',sans-serif; font-weight:900; font-size:clamp(64px,22vw,128px); line-height:1;
+  margin:28px 0 6px; color:var(--hi); letter-spacing:.06em;
+  text-shadow:0 0 18px color-mix(in srgb,var(--text) 45%,transparent);
+  animation:flicker 2.4s steps(1) 1;
+}
+@keyframes flicker{ 0%{opacity:.2} 8%{opacity:1} 12%{opacity:.4} 16%{opacity:1} 40%{opacity:.85} 44%{opacity:1} }
+.help h3{ font-size:15px; margin:18px 0 4px; color:var(--hi); }
+.help p,.help li{ font-size:14px; }
+.help ul{ padding-left:1.2em; margin:4px 0; }
+.cycle{ overflow-x:auto; white-space:nowrap; padding:6px 0; }
+@media (prefers-reduced-motion:reduce){ #log p,.title-word{ animation:none; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="status"></div>
+  <div id="log" aria-live="polite"></div>
+  <div id="actions"></div>
+</div>
+<div id="ov" class="ov" role="dialog" aria-modal="true"><div class="ov-in" id="ovIn"></div></div>
+
+<script>
+/* =========================================================
+   一、設定區（調整遊戲平衡改這裡就好）
+   ========================================================= */
+const CONFIG = {
+  MAX_TURN: 500,                        // 回合上限：到達時強制與古神決戰
+  OMEN_TURN: 450,                       // 從這回合開始出現末日預兆，遭遇率提高
+  EXP_NEED: [140, 450, 1300, 3500],     // 第 1~4 階升到下一階所需 EXP
+  EMPOWER_EXP: 3000,                    // 第 5 階之後，每累積這麼多 EXP 強化一次
+  EVOLVE_MULT: { maxHp:1.6, atk:1.55, def:1.55, spd:1.3, maxEn:1.25, reg:1.5 }, // 每次進化的基礎成長倍率
+  KILL_GROWTH: { maxHp:0.012, atk:0.009, def:0.007, spd:0.004 },              // 每次吞噬吸收對手數值的比例
+  ENCOUNTER_RATE: 0.55,                 // 探索時遇敵機率
+  RESOURCE_RATE: 0.30,                  // 探索時資源機率（剩下為特殊事件）
+  OBSERVE_RISK: 0.08,                   // 觀察時被察覺的基礎機率（每高一個強弱等級 +3%）
+  OBSERVE_STACK: 0.12,                  // 每多觀察一次，驚動對方的機率再增加多少
+  MIMIC_RATE: 0.15,                     // 敵人擬態（外觀誤導）的機率
+  MAX_LEGACY: 3,                        // 最多保留幾項繼承能力
+  SAVE_KEY: 'devour_abyss_v1',          // 瀏覽器存檔名稱（只存輪迴紀錄）
+};
+
+// 進化階段名稱（第 1~5 階）
+const STAGES = ['蠕動孢子', '幼體異蟲', '掠食變種', '深淵異種', '古神眷屬'];
+
+/* =========================================================
+   二、屬性與相剋（五元素循環）
+   血肉 → 孢菌 → 虛空 → 晶能 → 甲殼 → 血肉（箭頭指向被剋方）
+   ========================================================= */
+const ELEMENTS = {
+  none:    { name:'無',   beats:null },
+  flesh:   { name:'血肉', beats:'spore' },
+  shell:   { name:'甲殼', beats:'flesh' },
+  crystal: { name:'晶能', beats:'shell' },
+  void:    { name:'虛空', beats:'crystal' },
+  spore:   { name:'孢菌', beats:'void' },
+};
+const EL_KEYS = ['flesh', 'shell', 'crystal', 'void', 'spore'];
+
+// 相剋倍率：剋制 ×1.5、被剋 ×0.67、其餘 ×1
+function counter(atkEl, defEl){
+  if (!atkEl || !defEl || atkEl === 'none' || defEl === 'none') return 1;
+  if (ELEMENTS[atkEl].beats === defEl) return 1.5;
+  if (ELEMENTS[defEl].beats === atkEl) return 0.67;
+  return 1;
+}
+
+// 屬性外觀線索（盲盒：玩家只能從描述推理屬性）
+const EL_CLUES = {
+  flesh:   ['它沒有皮膚，裸露的肌肉一鼓一鼓地抽動，散發腥熱的氣味。', '血管在它的表面蜿蜒跳動，每一次脈動都帶出熱氣。'],
+  shell:   ['層層疊疊的硬殼互相摩擦，發出喀喀聲。', '它的背上覆蓋著岩石般的甲片，邊緣磨得發亮。'],
+  crystal: ['它體內透出冷冽的藍光，周圍的空氣劈啪作響。', '細小的晶簇從它的關節處刺出，閃著寒光。'],
+  void:    ['它的輪廓模糊不清，盯久了讓你頭暈。', '它周圍的光線像是被吸了進去，只剩一團扭曲的影子。'],
+  spore:   ['它身上長滿菌絲，四周飄著細細的粉塵。', '一股潮濕的霉味從它身上散開，表面冒著一顆顆菌囊。'],
+};
+
+// 敵人名稱：依屬性與階段（第 1~5 階）
+const ENEMY_NAMES = {
+  flesh:   ['肉蛆', '嗜血蠕蟲', '剝皮獵犬', '血肉巨獸', '萬口之母'],
+  shell:   ['硬殼蟎', '岩甲蟲', '鐵顎蜈蚣', '堡壘甲獸', '山殼古龜'],
+  crystal: ['晶屑蟲', '稜光水母', '晶刺狼', '共鳴巨像', '星核聚合體'],
+  void:    ['影蝨', '虛隙蛾', '無面潛行者', '裂隙吞噬者', '深淵凝視者'],
+  spore:   ['菌絲團', '孢囊蛞蝓', '寄生菇人', '腐林行者', '菌海之心'],
+};
+
+// 敵人基礎數值與每階成長倍率
+const ENEMY_BASE   = { hp:34, atk:6, def:2, spd:8 };
+const ENEMY_GROWTH = { hp:2.0, atk:1.85, def:1.8, spd:1.45 };
+// 各屬性的數值傾向
+const EL_MOD = {
+  flesh:   { hp:1.0,  atk:1.15, def:0.9, spd:1.0 },
+  shell:   { hp:1.1,  atk:0.9,  def:1.6, spd:0.8 },
+  crystal: { hp:0.9,  atk:1.1,  def:1.0, spd:1.0 },
+  void:    { hp:0.85, atk:1.0,  def:0.8, spd:1.35 },
+  spore:   { hp:1.25, atk:0.9,  def:1.0, spd:0.9 },
+};
+
+/* =========================================================
+   三、盲盒描述詞庫（核心亮點）
+   依「強弱等級」0~4 挑選：0 獵物、1 弱小、2 相當、3 危險、4 絕望
+   ========================================================= */
+const DESC = {
+  size: [
+    ['它只有你的一半大，縮成一團不停顫抖。', '它小得可憐，你幾乎可以一口吞下。'],
+    ['它的體型比你略小，動作有些遲緩。', '它和你差不多大，但看起來有點虛弱。'],
+    ['它的體型與你相當，正警戒地繞著你打轉。', '它和你一樣大，四肢緊繃，蓄勢待發。'],
+    ['它比你大上一圈，影子完全蓋住了你。', '它高高昂起身軀，比你大得多。'],
+    ['它龐大得像一座小丘，你甚至看不到它的全貌。', '它的體型讓你本能地想縮起身子。'],
+  ],
+  surface: [
+    ['它的表面黯淡乾裂，布滿舊傷。', '它的外皮鬆垮，像是很久沒有進食。'],
+    ['它的體表濕滑，看得出幾處破損。', '它的外層薄而柔軟，輕輕一戳就會破。'],
+    ['它的甲殼上有細細的紋路，泛著淡淡的光澤。', '它的表皮緊實，看不出明顯的弱點。'],
+    ['它的外殼像黑曜石般發亮，找不到一絲裂縫。', '它的表層厚重堅硬，佈滿尖銳的突起。'],
+    ['它的表面不斷蠕動重組，傷口一出現就立刻癒合。', '那層外殼的光澤刺得你眼睛發痛。'],
+  ],
+  fluid: [
+    ['只有幾滴稀薄的體液掛在它的嘴邊。', '它喘著氣，嘴角早已乾涸。'],
+    ['黏液緩緩滴落，散發淡淡的酸味。', '它的口器流著稀薄的唾液。'],
+    ['濃稠的黏液滴在地上，發出輕微的嘶嘶聲。', '它的口器不斷分泌半透明的液體。'],
+    ['黏液滴落之處，地面被腐蝕出焦黑的坑洞。', '滾燙的體液從它的甲縫中噴出白煙。'],
+    ['它滴下的液體讓周圍的小生物瞬間溶解。', '空氣中瀰漫著它的體液蒸氣，你的表皮開始刺痛。'],
+  ],
+  sound: [
+    ['它發出細弱的吱吱聲，像在求饒。', '它幾乎沒有聲音，只是不停後退。'],
+    ['它發出斷斷續續的嘶鳴。', '它的呼吸聲急促而紊亂。'],
+    ['低沉的嘶鳴在洞穴中迴盪。', '它磨著口器，發出規律的喀喀聲。'],
+    ['它的咆哮震得碎石從頂上掉落。', '一種低頻的嗡鳴讓你的體液跟著共振。'],
+    ['它沒有發出聲音，但你的腦中響起了低語。', '它一張口，四周所有的聲音都消失了。'],
+  ],
+  instinct: [
+    ['你的本能在催促你：吃掉它。', '它的眼中只有恐懼。'],
+    ['你的口器不自覺地分泌唾液。', '它避開了你的視線。'],
+    ['你感到一絲緊張，但並不害怕。', '它的眼睛冷靜地打量著你。'],
+    ['你的本能發出警告，全身肌肉繃緊。', '它看你的眼神，像在看一頓晚餐。'],
+    ['你的本能在尖叫：快逃！', '數十隻眼睛同時睜開，全都盯著你。'],
+  ],
+};
+const TIER_NAMES = ['獵物：它根本不是你的對手', '弱小：你佔有優勢', '相當：這會是一場硬仗', '危險：它比你強', '絕望：你幾乎沒有勝算'];
+
+// 各種戰鬥與事件文字
+const ENCOUNTER_OPEN = ['黑暗中有東西在移動。', '你嗅到了另一隻生物的氣味。', '岩縫裡探出了一個身影。', '前方的黏液痕跡還是溫的。', '某個東西擋住了你的去路。'];
+const ENEMY_HIT  = ['它猛地咬住你，', '它的利爪劃過你的身體，', '它用身體狠狠撞向你，', '它噴出一股腐蝕性的黏液，'];
+const HEAVY_HIT  = ['它蓄積的力量一口氣爆發！', '一記毀滅性的重擊落在你身上！'];
+const CHARGE_TEXT = {
+  flesh:   '它的肌肉猛然鼓脹，全身血管暴起……',
+  shell:   '它把身體縮進甲殼，緩緩後退蓄力……',
+  crystal: '它體內的冷光越來越亮，空氣劈啪作響……',
+  void:    '它的輪廓忽然消失了一半……',
+  spore:   '它的菌囊開始膨脹，粉塵越來越濃……',
+};
+const OMENS = ['遠方傳來一陣你從未聽過的低鳴。', '頭頂的岩層正在裂開，裂縫後面是一片純粹的黑。', '所有生物都朝同一個方向逃竄。', '你體內的基因在不安地躁動。', '某個巨大的東西翻了個身，整個深淵都在震動。'];
+const MUTATION_TEXT = {
+  flesh:   ['你的口器裂成四瓣，長出倒鉤狀的利齒。', '你的肌肉纖維一束束地撕裂又重組，變得更粗更熱。'],
+  shell:   ['你的背上隆起厚重的甲片，一層疊著一層。', '你的表皮硬化成岩石般的外殼。'],
+  crystal: ['冰冷的晶簇從你的脊椎一路刺出。', '你體內開始流動著藍色的光。'],
+  void:    ['你的輪廓變得模糊，光線開始繞過你的身體。', '你學會了在現實的縫隙之間移動。'],
+  spore:   ['菌絲從你的毛孔中鑽出，在你身上織成一層網。', '你的身體長出一顆顆飽滿的菌囊。'],
+};
+
+/* =========================================================
+   四、技能表
+   active：主動技能（消耗能量 EN）；passive：被動技能（常駐）
+   主動最多 4 個、被動最多 3 個
+   ========================================================= */
+const SKILLS = {
+  // 血肉
+  rend:      { name:'撕裂口器', el:'flesh',   type:'active',  cost:15, desc:'1.6 倍傷害，並使敵人流血 3 回合' },
+  frenzy:    { name:'狂噬',     el:'flesh',   type:'active',  cost:25, desc:'2.2 倍傷害，自身承受造成傷害的 10%' },
+  leech:     { name:'血肉吞噬', el:'flesh',   type:'passive', desc:'造成傷害的 15% 轉為生命' },
+  bloodlust: { name:'嗜血',     el:'flesh',   type:'passive', desc:'生命低於 30% 時攻擊 +40%' },
+  // 甲殼
+  harden:    { name:'硬化',     el:'shell',   type:'active',  cost:10, desc:'優先發動，本回合受到的傷害減少 60%' },
+  ram:       { name:'甲殼衝撞', el:'shell',   type:'active',  cost:20, desc:'以防禦 ×2 作為攻擊力造成傷害' },
+  thorns:    { name:'反甲',     el:'shell',   type:'passive', desc:'反彈受到傷害的 20%' },
+  steadfast: { name:'不動如山', el:'shell',   type:'passive', desc:'免疫震暈，防禦 +15%' },
+  // 晶能
+  shard:     { name:'晶刺射擊', el:'crystal', type:'active',  cost:15, desc:'1.8 倍傷害，無視一半防禦' },
+  resonance: { name:'晶體共鳴', el:'crystal', type:'active',  cost:20, desc:'看穿敵人屬性與真實強弱，下次攻擊必定暴擊' },
+  circuit:   { name:'能量迴路', el:'crystal', type:'passive', desc:'每回合能量回復 ×2' },
+  prism:     { name:'稜鏡',     el:'crystal', type:'passive', desc:'技能傷害 +25%' },
+  // 虛空
+  phase:     { name:'相位轉移', el:'void',    type:'active',  cost:20, desc:'優先發動，必定閃避下一次攻擊' },
+  erode:     { name:'精神侵蝕', el:'void',    type:'active',  cost:25, desc:'敵人攻擊 -30%，持續 3 回合' },
+  voidstep:  { name:'虛空步伐', el:'void',    type:'passive', desc:'速度 +20%，每場戰鬥必定能逃跑一次' },
+  gaze:      { name:'凝視深淵', el:'void',    type:'passive', desc:'觀察時不會被察覺' },
+  // 孢菌
+  sporemist: { name:'孢子霧',   el:'spore',   type:'active',  cost:15, desc:'敵人中毒 4 回合，每回合損失 5% 生命' },
+  parasite:  { name:'寄生',     el:'spore',   type:'active',  cost:30, desc:'敵人中毒時，吸取它目前 20% 的生命' },
+  regrow:    { name:'再生組織', el:'spore',   type:'passive', desc:'再生 ×2' },
+  mycelium:  { name:'菌絲網',   el:'spore',   type:'passive', desc:'吞噬後每種基因額外 +1' },
+};
+const PRIORITY_SKILLS = ['harden', 'phase']; // 不論速度都在回合開始時發動
+
+/* =========================================================
+   五、基因系統
+   肉食 → 暴擊；植物 → 再生；結晶 → 感知與逃跑
+   進化時，數量最多的基因決定主要突變方向
+   ========================================================= */
+const GENE_NAMES = { predator:'肉食', herbivore:'植物', energy:'結晶' };
+const GENE_OF = { // 吞噬各屬性生物獲得的基因
+  flesh:{ predator:2 }, shell:{ predator:1, herbivore:1 }, crystal:{ energy:2 },
+  void:{ energy:1, predator:1 }, spore:{ herbivore:2 },
+};
+const GENE_ELEMENTS = { predator:['flesh', 'shell'], herbivore:['spore', 'shell'], energy:['crystal', 'void'] };
+
+// 突變時依屬性給的額外成長
+const EL_BONUS = {
+  flesh:   { desc:'攻擊 +12%、暴擊 +3%',          apply:p => { p.atk *= 1.12; p.crit += 0.03; } },
+  shell:   { desc:'防禦 +25%、生命 +10%',          apply:p => { p.def *= 1.25; p.maxHp *= 1.1; } },
+  crystal: { desc:'能量 +15、感知 +1、攻擊 +6%',   apply:p => { p.maxEn += 15; p.per += 1; p.atk *= 1.06; } },
+  void:    { desc:'速度 +15%、感知 +1',            apply:p => { p.spd *= 1.15; p.per += 1; } },
+  spore:   { desc:'生命 +15%、再生 +1.5',          apply:p => { p.maxHp *= 1.15; p.reg += 1.5; } },
+};
+const STAT_NAMES = { maxHp:'生命上限', atk:'攻擊', def:'防禦', spd:'速度' };
+
+/* =========================================================
+   六、工具函式
+   ========================================================= */
+const $ = id => document.getElementById(id);
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const R = n => Math.round(n);
+const has = id => G.p.actives.includes(id) || G.p.passives.includes(id);
+
+let G = null; // 整局遊戲狀態
+
+/* ---------- 存檔（只存輪迴紀錄與繼承能力） ---------- */
+function loadSave(){
+  try {
+    const s = JSON.parse(localStorage.getItem(CONFIG.SAVE_KEY));
+    if (s && Array.isArray(s.legacies)) return s;
+  } catch (e) {}
+  return { rebirths:0, best:0, legacies:[] };
+}
+function writeSave(s){ try { localStorage.setItem(CONFIG.SAVE_KEY, JSON.stringify(s)); } catch (e) {} }
+let SAVE = loadSave();
+
+/* =========================================================
+   七、主角
+   ========================================================= */
+function newPlayer(){
+  return {
+    hp:60, maxHp:60, atk:7, def:3, spd:8, en:20, maxEn:20, per:1, reg:1, crit:0.05,
+    exp:0, stage:1, element:'none', form:STAGES[0],
+    genes:{ predator:0, herbivore:0, energy:0 },
+    actives:[], passives:[], turn:0, kills:0, empower:0,
+  };
+}
+// 實際數值（含被動與基因加成）
+function effAtk(){ const p = G.p; return p.atk * (has('bloodlust') && p.hp < p.maxHp * 0.3 ? 1.4 : 1); }
+function effDef(){ return G.p.def * (has('steadfast') ? 1.15 : 1); }
+function effSpd(){ return G.p.spd * (has('voidstep') ? 1.2 : 1); }
+function effCrit(){ return Math.min(0.45, G.p.crit + G.p.genes.predator * 0.002); }
+function effReg(){ const p = G.p; return (p.reg + p.genes.herbivore * 0.05) * (has('regrow') ? 2 : 1); }
+function effPer(){ return G.p.per + G.p.genes.energy * 0.05; }
+// 綜合戰力（判斷強弱等級用，玩家看不到）
+function powerOf(x){ return x.maxHp + x.atk * 4 + x.def * 3 + x.spd * 2; }
+function playerPower(){ const p = G.p; return p.maxHp + p.atk * 4 + effDef() * 3 + effSpd() * 2; }
+function healP(n){ const p = G.p; p.hp = Math.min(p.maxHp, p.hp + Math.max(0, n)); }
+function dominantGene(){
+  const g = G.p.genes; const max = Math.max(g.predator, g.herbivore, g.energy);
+  return pick(Object.keys(g).filter(k => g[k] === max));
+}
+function fleeChance(e){ return clamp(0.6 + (effSpd() - e.spd) * 0.02 + effPer() * 0.02, 0.1, 0.95); }
+
+/* =========================================================
+   八、日誌與介面
+   ========================================================= */
+function log(text, cls){
+  const L = $('log'); const el = document.createElement('p');
+  if (cls) el.className = cls; el.textContent = text; L.appendChild(el);
+  while (L.children.length > 250) L.removeChild(L.firstChild);
+  L.scrollTop = L.scrollHeight;
+}
+function bar(cur, max, len = 14){
+  const n = clamp(Math.round(cur / max * len), 0, len);
+  return '█'.repeat(n) + '░'.repeat(len - n);
+}
+function expNeed(){ const p = G.p; return p.stage < 5 ? CONFIG.EXP_NEED[p.stage - 1] : CONFIG.EMPOWER_EXP; }
+
+function render(){
+  const p = G.p;
+  $('status').innerHTML = `
+    <div class="row">
+      <span class="form">${p.form}</span>
+      <span>第 ${p.stage} 階　<span class="el-${p.element}">［${ELEMENTS[p.element].name}］</span></span>
+    </div>
+    <div class="row" style="color:var(--dim)">
+      <span>回合 ${p.turn} / ${CONFIG.MAX_TURN}　吞噬 ${p.kills}</span>
+      <span><button class="mini" id="btnSkills">技能</button> <button class="mini" id="btnHelp">說明</button></span>
+    </div>
+    <div class="bars">
+      <div class="bar"><span class="lbl">生命</span>${bar(p.hp, p.maxHp)} ${R(Math.max(0, p.hp))}/${R(p.maxHp)}</div>
+      <div class="bar"><span class="lbl">能量</span>${bar(p.en, p.maxEn)} ${R(p.en)}/${R(p.maxEn)}</div>
+      <div class="bar"><span class="lbl">EXP</span>${bar(p.exp, expNeed())} ${R(p.exp)}/${expNeed()}${p.stage === 5 ? '（強化）' : ''}</div>
+    </div>
+    <div class="stats">攻 <b>${R(effAtk())}</b>　防 <b>${R(effDef())}</b>　速 <b>${R(effSpd())}</b>　感 <b>${effPer().toFixed(1)}</b>　再 <b>${effReg().toFixed(1)}</b>　暴 <b>${R(effCrit() * 100)}%</b></div>
+    <div class="genes">基因　肉食 <b>${p.genes.predator}</b>　植物 <b>${p.genes.herbivore}</b>　結晶 <b>${p.genes.energy}</b></div>`;
+  $('btnSkills').onclick = showSkills;
+  $('btnHelp').onclick = () => showHelp(false);
+  renderActions();
+}
+
+// 依目前模式產生行動按鈕
+function renderActions(){
+  const list = [];
+  const p = G.p, e = G.enemy;
+  if (G.mode === 'explore'){
+    list.push({ label:'探索', sub:'向深淵更深處移動', fn:explore, wide:p.stage < 5 });
+    if (p.stage === 5) list.push({ label:'挑戰古神', sub:'越早挑戰，分數越高', fn:() => startBoss(false) });
+  } else if (G.mode === 'encounter'){
+    const left = 6 - e.revealed.length; // 最多還能看清幾項細節
+    list.push({ label:'觀察', sub:left > 0 ? `還能看清 ${left} 項・越看越容易驚動它` : '已經看不出更多了', fn:observe, disabled:left <= 0 });
+    list.push({ label:'冒險吞噬', sub:'主動開戰', fn:() => { log('> 冒險吞噬', 'cmd'); startBattle(false); } });
+    list.push({ label:'逃跑', sub:'失敗會被它先手攻擊', fn:fleeEncounter, wide:true });
+  } else if (G.mode === 'battle'){
+    list.push({ label:'撕咬', sub:'普通攻擊', fn:() => playerTurn('attack') });
+    p.actives.forEach(id => {
+      const s = SKILLS[id];
+      list.push({ label:s.name, sub:`${s.cost} EN・${s.desc}`, fn:() => playerTurn('skill', id), disabled:p.en < s.cost });
+    });
+    if (!e.isBoss) list.push({ label:'逃跑', sub:G.b.guaranteedFlee ? '虛空步伐：必定成功' : '試著甩開它', fn:() => playerTurn('flee') });
+  } else if (G.mode === 'event'){
+    G.evt.forEach(o => list.push(o));
+  }
+  const A = $('actions'); A.innerHTML = '';
+  list.forEach((o, i) => {
+    const b = document.createElement('button');
+    b.className = 'act' + (o.wide ? ' wide' : '');
+    b.disabled = !!o.disabled;
+    b.innerHTML = `<span class="k">${i + 1}</span>${o.label}${o.sub ? `<span class="sub">${o.sub}</span>` : ''}`;
+    b.onclick = o.fn;
+    A.appendChild(b);
+  });
+}
+
+/* =========================================================
+   九、探索與事件
+   ========================================================= */
+function explore(){
+  const p = G.p;
+  p.turn++;
+  log(`> 探索・第 ${p.turn} 回合`, 'cmd');
+  healP(p.maxHp * 0.06 + effReg() * 2);                 // 探索時自然回復
+  p.en = Math.min(p.maxEn, p.en + 5);
+  if (p.turn >= CONFIG.MAX_TURN){ startBoss(true); return; }
+  const late = p.turn >= CONFIG.OMEN_TURN;
+  if (late && Math.random() < 0.5) log(pick(OMENS), 'omen');
+  const r = Math.random(), bonus = late ? 0.1 : 0;
+  if (r < CONFIG.ENCOUNTER_RATE + bonus) encounter();
+  else if (r < CONFIG.ENCOUNTER_RATE + CONFIG.RESOURCE_RATE + bonus / 2) resourceEvent();
+  else specialEvent();
+  render();
+}
+
+// 資源事件：增加對應基因
+const RESOURCES = [
+  { text:['你發現一塊還在抽動的腐肉。', '一具新鮮的屍體橫在路中央。'], gene:{ predator:2 }, heal:0.1, exp:4 },
+  { text:['岩壁上長滿了發光苔蘚。', '一片柔軟的菌毯散發著甜味。'], gene:{ herbivore:2 }, heal:0.25, exp:2 },
+  { text:['地上有一顆殘留晶核，還微微發燙。', '你在裂縫中找到了一簇冰冷的結晶。'], gene:{ energy:2 }, en:true, exp:3 },
+];
+function resourceEvent(){
+  const p = G.p, r = pick(RESOURCES);
+  log(pick(r.text));
+  const exp = R(r.exp * Math.pow(1.9, p.stage - 1));
+  if (r.heal) healP(p.maxHp * r.heal);
+  if (r.en) p.en = p.maxEn;
+  const gt = addGenes(r.gene);
+  log(`你把它吞了下去。EXP +${exp}，${gt}`, 'gene');
+  gainExp(exp);
+}
+function addGenes(g, extra = 0){
+  const parts = [];
+  for (const k in g){ const n = g[k] + extra; G.p.genes[k] += n; parts.push(`${GENE_NAMES[k]}基因 +${n}`); }
+  return parts.join('、');
+}
+
+// 特殊事件：需要玩家做選擇
+function specialEvent(){
+  const p = G.p, k = Math.pow(1.9, p.stage - 1);
+  const roll = Math.random();
+  if (roll < 0.3){
+    log('你發現一具巨大的古老遺骸，骨頭上刻著你看不懂的紋路。', 'warn');
+    setEvent([
+      { label:'吞下遺骸', sub:'可能大幅成長，也可能受重傷', fn:() => {
+        log('> 吞下遺骸', 'cmd');
+        if (Math.random() < 0.5){
+          const s = pick(['maxHp', 'atk', 'def', 'spd']); p[s] *= 1.08; if (s === 'maxHp') healP(p.maxHp);
+          const exp = R(18 * k); log(`古老的力量在你體內甦醒。${STAT_NAMES[s]} +8%，EXP +${exp}`, 'good'); endEvent(); gainExp(exp);
+        } else {
+          p.hp -= p.maxHp * 0.25; log('某種東西在你體內甦醒，又痛苦地死去。你損失了大量生命。', 'bad');
+          if (p.hp <= 0){ p.hp = 1; log('你勉強撐住了。', 'dim'); } endEvent();
+        }
+      }},
+      { label:'離開', fn:() => { log('> 離開', 'cmd'); log('你繞過了遺骸。', 'dim'); endEvent(); } },
+    ]);
+  } else if (roll < 0.55){
+    log('你發現一具同類的屍骸。它的形態和你很像。', 'warn');
+    setEvent([
+      { label:'吞下同類', sub:'大量 EXP，但會損失生命', fn:() => {
+        log('> 吞下同類', 'cmd');
+        const exp = R(16 * k); p.hp = Math.max(1, p.hp - p.maxHp * 0.15);
+        const g = pick(Object.keys(GENE_NAMES)); p.genes[g] += 2;
+        log(`同類的記憶湧入你的意識，讓你一陣劇痛。EXP +${exp}，${GENE_NAMES[g]}基因 +2`, 'gene'); endEvent(); gainExp(exp);
+      }},
+      { label:'離開', fn:() => { log('> 離開', 'cmd'); log('你沒有碰它。', 'dim'); endEvent(); } },
+    ]);
+  } else if (roll < 0.8){
+    const s = pick(['maxHp', 'atk', 'def', 'spd']);
+    if (Math.random() < 0.6){ p[s] *= 1.06; log(`黑暗中有聲音在低語。你的${STAT_NAMES[s]}提升了 6%。`, 'omen'); }
+    else { p[s] *= 0.96; p.hp = Math.min(p.hp, p.maxHp); log(`黑暗中有聲音在低語。你的${STAT_NAMES[s]}下降了 4%。`, 'omen'); }
+  } else {
+    log('你找到一個安靜的巢穴，四周沒有任何氣息。');
+    setEvent([
+      { label:'休息', sub:'回復 50% 生命與全部能量，多花 1 回合', fn:() => {
+        log('> 休息', 'cmd'); p.turn++; healP(p.maxHp * 0.5); p.en = p.maxEn; log('你蜷縮起來睡了一覺。', 'good'); endEvent();
+        if (p.turn >= CONFIG.MAX_TURN) startBoss(true);
+      }},
+      { label:'離開', fn:() => { log('> 離開', 'cmd'); endEvent(); } },
+    ]);
+  }
+}
+function setEvent(opts){ G.mode = 'event'; G.evt = opts; }
+function endEvent(){ if (G.mode === 'event'){ G.mode = 'explore'; G.evt = null; } render(); }
+
+/* =========================================================
+   十、遭遇與觀察（盲盒）
+   ========================================================= */
+// 依強度係數幫名字加前綴：同一種生物也有強弱個體
+// （前綴反映真實強度，所以擬態生物在「認出它」時會露出馬腳）
+function strengthPrefix(f){
+  return f < 0.6 ? '瘦弱的' : f < 1.0 ? '' : f < 1.4 ? '成年' : f < 1.8 ? '巨型' : '變異';
+}
+function makeEnemy(){
+  const p = G.p;
+  const stage = Math.min(5, p.stage + (p.stage >= 2 && Math.random() < 0.06 ? 1 : 0)); // 第 2 階起，偶爾出現高一階的生物
+  const el = pick(EL_KEYS), k = stage - 1, m = EL_MOD[el];
+  // 強度係數：多數偏弱或相當，少數非常強
+  const r = Math.random();
+  const f = r < 0.3 ? rand(0.35, 0.6) : r < 0.65 ? rand(0.6, 1.0) : r < 0.88 ? rand(1.0, 1.4) : rand(1.4, 2.2);
+  const e = {
+    name:strengthPrefix(f) + ENEMY_NAMES[el][k], el, stage,
+    maxHp:ENEMY_BASE.hp * Math.pow(ENEMY_GROWTH.hp, k) * m.hp * f,
+    atk:ENEMY_BASE.atk * Math.pow(ENEMY_GROWTH.atk, k) * m.atk * Math.pow(f, 0.7),
+    def:ENEMY_BASE.def * Math.pow(ENEMY_GROWTH.def, k) * m.def * f,
+    spd:ENEMY_BASE.spd * Math.pow(ENEMY_GROWTH.spd, k) * m.spd * Math.sqrt(f),
+    st:{ poison:0, bleed:0, weak:0 }, revealed:[], elKnown:false, charging:false,
+  };
+  e.hp = e.maxHp;
+  // 強弱等級：比較「我殺死它要幾下」和「它殺死我要幾下」（不含屬性相剋）
+  const myHit = effAtk() * (1 - e.def / (e.def + 50));
+  const itsHit = e.atk * (1 - effDef() / (effDef() + 50));
+  const ratio = (e.maxHp / myHit) / (p.maxHp / itsHit);
+  e.tier = ratio < 0.35 ? 0 : ratio < 0.7 ? 1 : ratio < 1.1 ? 2 : ratio < 1.8 ? 3 : 4;
+  // 擬態：外觀顯示錯誤的強弱等級
+  e.mimic = Math.random() < CONFIG.MIMIC_RATE;
+  e.shownTier = e.mimic ? pick([0, 1, 2, 3, 4].filter(t => t !== e.tier)) : e.tier;
+  e.exp = R(8 * Math.pow(1.9, k) * f * (1 + 0.15 * e.tier));
+  return e;
+}
+// 擬態生物：感知越高，越容易看到真實的描述
+function tierFor(e){
+  if (!e.mimic) return e.tier;
+  return Math.random() < Math.min(0.9, 0.35 + effPer() * 0.1) ? e.tier : e.shownTier;
+}
+function encounter(){
+  const e = makeEnemy();
+  G.enemy = e; G.mode = 'encounter';
+  log(pick(ENCOUNTER_OPEN), 'warn');
+  log(pick(DESC.size[e.shownTier]));      // 第一印象：可能被擬態誤導
+  log(pick(DESC.surface[tierFor(e)]));
+  e.revealed = ['size', 'surface'];
+}
+function observe(){
+  const e = G.enemy;
+  log('> 觀察', 'cmd');
+  e.looks = (e.looks || 0) + 1; // 這次遭遇已經觀察了幾次
+  const next = ['fluid', 'sound', 'instinct', 'element'].find(a => !e.revealed.includes(a));
+  if (!next) log('你已經看不出更多細節了。', 'dim');
+  else {
+    e.revealed.push(next);
+    if (next === 'element'){ log(pick(EL_CLUES[e.el])); e.elKnown = true; log(`你認出了它：${e.name}。`, 'info'); }
+    else {
+      const t = tierFor(e); log(pick(DESC[next][t]));
+      if (e.mimic && t === e.tier && Math.random() < 0.5) log('你隱約覺得，它的外表和它的氣息對不上。', 'info');
+    }
+  }
+  // 對峙越久越容易驚動對方：強的會撲上來，弱的會趁機逃走
+  if (!has('gaze')){
+    const risk = CONFIG.OBSERVE_RISK + e.tier * 0.03 + (e.looks - 1) * CONFIG.OBSERVE_STACK;
+    if (Math.random() < risk){
+      if (e.tier <= 1){
+        log(pick(['它察覺到你的視線，一溜煙鑽進了岩縫。', '它猛然驚醒，頭也不回地逃走了。']), 'dim');
+        log('到嘴的獵物跑了。', 'dim');
+        G.enemy = null; G.mode = 'explore'; render(); return;
+      }
+      log('它察覺到你的視線，猛然撲了過來！', 'bad'); startBattle(true); return;
+    }
+    // 警訊：提醒玩家再看下去就危險了
+    if (e.looks >= 2) log(pick(['它的動作停了下來，似乎察覺到了什麼。', '它緩緩轉動身體，朝你這邊嗅了嗅。', '四周安靜得過分。']), 'warn');
+  }
+  render();
+}
+function fleeEncounter(){
+  log('> 逃跑', 'cmd');
+  if (Math.random() < fleeChance(G.enemy) + 0.15){ log('你悄悄退回黑暗之中。', 'dim'); G.enemy = null; G.mode = 'explore'; render(); }
+  else { log('你轉身的瞬間，它已經追了上來！', 'bad'); startBattle(true); }
+}
+
+/* =========================================================
+   十一、戰鬥系統
+   傷害 = 攻擊 × 技能倍率 × 相剋倍率 × (1 − 防禦/(防禦+50)) × 隨機 0.9~1.1
+   ========================================================= */
+function calcDmg(atk, defVal, mult, atkEl, defEl, pierce){
+  const d = pierce ? defVal / 2 : defVal;
+  return Math.max(1, R(atk * mult * counter(atkEl, defEl) * (1 - d / (d + 50)) * rand(0.9, 1.1)));
+}
+// 對敵人造成的傷害不顯示數字，只用文字描述
+function hurtWord(r){
+  return r > 0.3 ? '重創了它！' : r > 0.15 ? '狠狠撕下一大塊血肉。' : r > 0.06 ? '擊中了它。' : '只擦傷了它的表皮。';
+}
+function enemyState(e){
+  const r = e.hp / e.maxHp;
+  return r > 0.75 ? '它看起來幾乎沒受傷。' : r > 0.5 ? '它身上出現了明顯的裂口。' : r > 0.25 ? '它的動作變得遲緩，體液不斷滲出。' : '它搖搖欲墜，發出瀕死的哀鳴。';
+}
+
+function startBattle(enemyFirst){
+  G.mode = 'battle';
+  G.b = { round:0, fleeFails:0, guaranteedFlee:has('voidstep'), critNext:false, phase:false, harden:false, stun:0 };
+  log('—— 戰鬥開始 ——', 'sys');
+  if (enemyFirst){ enemyAct(); if (checkEnd()) return; }
+  render();
+}
+
+function playerTurn(kind, id){
+  const p = G.p, e = G.enemy, b = G.b;
+  b.round++; b.harden = false;
+  log(`> ${kind === 'attack' ? '撕咬' : kind === 'flee' ? '逃跑' : SKILLS[id].name}`, 'cmd');
+  // 優先技能：回合開始就生效
+  if (kind === 'skill' && PRIORITY_SKILLS.includes(id)){
+    if (b.stun > 0){ b.stun--; log('你被震暈了，無法行動！', 'bad'); }
+    else {
+      p.en -= SKILLS[id].cost;
+      if (id === 'harden'){ b.harden = true; log('你迅速硬化外殼，準備承受衝擊。', 'good'); }
+      if (id === 'phase'){ b.phase = true; log('你的身體一半沉入了虛空。', 'good'); }
+    }
+    enemyAct();
+    if (checkEnd()) return;
+    endRound(); if (checkEnd()) return;
+    render(); return;
+  }
+  const order = effSpd() >= e.spd ? ['P', 'E'] : ['E', 'P'];
+  for (const who of order){
+    if (who === 'P'){
+      if (b.stun > 0){ b.stun--; log('你被震暈了，無法行動！', 'bad'); }
+      else if (kind === 'attack') hitEnemy(1, { verb:'你撲上去撕咬' });
+      else if (kind === 'skill') useSkill(id);
+      else if (kind === 'flee' && tryFlee()){ endBattle('你成功甩開了它。'); return; }
+    } else enemyAct();
+    if (checkEnd()) return;
+  }
+  // 速度是對手兩倍以上：普通攻擊追加一擊
+  if (kind === 'attack' && effSpd() >= e.spd * 2 && e.hp > 0){
+    log('你的速度遠超對手，追加一擊！', 'good'); hitEnemy(1, { verb:'你再次咬下' });
+    if (checkEnd()) return;
+  }
+  endRound(); if (checkEnd()) return;
+  render();
+}
+
+function hitEnemy(mult, opt = {}){
+  const p = G.p, e = G.enemy, b = G.b;
+  const verb = opt.verb || '你發動攻擊';
+  const dodge = clamp((e.spd - effSpd()) * 0.01, 0, 0.3);
+  if (Math.random() < dodge){ log(`${verb}，但它敏捷地閃開了。`, 'dim'); return 0; }
+  const atk = opt.atkOverride ?? effAtk();
+  const m = mult * (opt.skill && has('prism') ? 1.25 : 1);
+  let dmg = calcDmg(atk, e.def, m, p.element, e.el, opt.pierce), crit = false;
+  if (b.critNext || Math.random() < effCrit()){ dmg = R(dmg * 1.8); crit = true; b.critNext = false; }
+  e.hp -= dmg;
+  const c = counter(p.element, e.el);
+  const tail = c > 1 ? '屬性剋制，效果拔群！' : c < 1 ? '你的攻擊被它的屬性抵銷了不少。' : '';
+  log(`${verb}，${hurtWord(dmg / e.maxHp)}${crit ? '（暴擊）' : ''}${tail}`, crit || c > 1 ? 'good' : '');
+  if (has('leech')) healP(dmg * 0.15);
+  return dmg;
+}
+
+function useSkill(id){
+  const p = G.p, e = G.enemy, b = G.b;
+  p.en -= SKILLS[id].cost;
+  switch (id){
+    case 'rend':
+      if (hitEnemy(1.6, { verb:'你張開撕裂口器', skill:true }) > 0){ e.st.bleed = 3; log('它的傷口血流不止。', 'info'); }
+      break;
+    case 'frenzy': {
+      const d = hitEnemy(2.2, { verb:'你陷入狂噬', skill:true });
+      if (d > 0){ const self = R(d * 0.1); p.hp -= self; log(`狂噬的反噬讓你損失 ${self} 點生命。`, 'bad'); }
+      break;
+    }
+    case 'ram': hitEnemy(1, { verb:'你用甲殼全力衝撞', skill:true, atkOverride:effDef() * 2 }); break;
+    case 'shard': hitEnemy(1.8, { verb:'你射出晶刺', skill:true, pierce:true }); break;
+    case 'resonance':
+      e.elKnown = true; b.critNext = true;
+      log(`晶體共鳴：它是${e.name}，屬性【${ELEMENTS[e.el].name}】。`, 'info');
+      log(`你感知到它的真實強弱，${TIER_NAMES[e.tier]}。`, 'info');
+      break;
+    case 'erode': e.st.weak = 3; log('你的意念鑽進它的神經，它的動作變得猶豫。', 'good'); break;
+    case 'sporemist': e.st.poison = 4; log('孢子霧籠罩了它，它開始劇烈抽搐。', 'good'); break;
+    case 'parasite':
+      if (e.st.poison > 0){
+        const d = R(e.hp * (e.isBoss ? 0.08 : 0.2) * (has('prism') ? 1.25 : 1));
+        e.hp -= d; healP(d); log('你的菌絲刺入它體內，吸取了它的生命。', 'good');
+      } else log('它沒有中毒，菌絲找不到入口。寄生失敗了。', 'dim');
+      break;
+  }
+}
+
+function tryFlee(){
+  const b = G.b;
+  if (b.guaranteedFlee){ b.guaranteedFlee = false; log('你踏入虛空，從它眼前消失了。', 'good'); return true; }
+  if (Math.random() < fleeChance(G.enemy) + b.fleeFails * 0.15) return true; // 每失敗一次，下次成功率 +15%
+  b.fleeFails++;
+  log('你試著逃跑，但被它攔了下來。', 'bad'); return false;
+}
+
+function enemyAct(){
+  const e = G.enemy;
+  if (e.hp <= 0) return;
+  // 重傷時有機率逃走（古神不會）
+  if (!e.isBoss && e.stage >= 2 && e.hp < e.maxHp * 0.15 && Math.random() < 0.15){
+    e.fled = true; log('它拖著殘破的身體逃進了黑暗。', 'dim'); return;
+  }
+  if (e.charging){ e.charging = false; enemyHit(2.0, true); return; }
+  // 蓄力：下回合 2 倍傷害（給玩家時間應對）
+  if ((e.stage >= 3 || (e.stage === 2 && G.p.stage >= 2) || e.isBoss) && Math.random() < (e.isBoss ? 0.3 : 0.18)){
+    e.charging = true; log(CHARGE_TEXT[e.el], 'warn'); return;
+  }
+  enemyHit(1, false);
+}
+function enemyHit(mult, heavy){
+  const p = G.p, e = G.enemy, b = G.b;
+  if (b.phase){ b.phase = false; log('它的攻擊穿過了你的殘影。', 'good'); return; }
+  const dodge = clamp((effSpd() - e.spd) * 0.01, 0, 0.3);
+  if (Math.random() < dodge){ log('你側身閃過了它的攻擊。', 'good'); return; }
+  let dmg = calcDmg(e.atk * (e.st.weak > 0 ? 0.7 : 1), effDef(), mult, e.el, p.element, false);
+  if (Math.random() < 0.05) dmg = R(dmg * 1.5);
+  if (b.harden) dmg = R(dmg * 0.4);
+  p.hp -= dmg;
+  log(`${heavy ? pick(HEAVY_HIT) : pick(ENEMY_HIT)}你受到 ${dmg} 點傷害。${b.harden ? '硬化擋下了大部分衝擊。' : ''}`, 'bad');
+  if (has('thorns')){ e.hp -= dmg * 0.2; log('反甲刺穿了它的身體。', 'info'); }
+  if (heavy && (e.el === 'shell' || e.el === 'void' || e.isBoss) && !has('steadfast') && Math.random() < 0.3){
+    b.stun = 1; log('你被震得頭暈目眩！', 'bad');
+  }
+}
+
+// 回合結束：持續效果、再生、能量回復、古神屬性輪轉
+function endRound(){
+  const p = G.p, e = G.enemy, b = G.b;
+  if (e.st.poison > 0 && e.hp > 0){ e.hp -= Math.max(1, e.maxHp * (e.isBoss ? 0.02 : 0.05)); e.st.poison--; log('毒素在它體內蔓延。', 'info'); }
+  if (e.st.bleed > 0 && e.hp > 0){ e.hp -= Math.max(1, effAtk() * 0.3); e.st.bleed--; log('它的傷口仍在流血。', 'info'); }
+  if (e.st.weak > 0) e.st.weak--;
+  healP(effReg());
+  p.en = Math.min(p.maxEn, p.en + (has('circuit') ? 10 : 5));
+  if (e.hp > 0) log(enemyState(e), 'dim');
+  if (e.isBoss && b.round % 3 === 0 && e.hp > 0){
+    e.el = pick(EL_KEYS.filter(x => x !== e.el));
+    log(`古神的軀體開始扭曲重組……${pick(EL_CLUES[e.el])}`, 'omen');
+  }
+}
+
+function checkEnd(){
+  const p = G.p, e = G.enemy;
+  if (p.hp <= 0){ p.hp = 0; die(); return true; }
+  if (e.fled){ endBattle(null); return true; }
+  if (e.hp <= 0){ e.isBoss ? win() : victory(); return true; }
+  return false;
+}
+function endBattle(msg){
+  if (msg) log(msg, 'good');
+  log('—— 戰鬥結束 ——', 'sys');
+  G.enemy = null; G.b = null; G.mode = 'explore'; render();
+}
+
+// 吞噬成功：EXP、基因、吸收對手數值
+function victory(){
+  const p = G.p, e = G.enemy, gr = CONFIG.KILL_GROWTH;
+  p.kills++;
+  log(`你吞噬了${e.name}。`, 'good');
+  if (!e.elKnown) log(`直到吞下它，你才知道它屬於【${ELEMENTS[e.el].name}】。`, 'dim');
+  p.maxHp += e.maxHp * gr.maxHp; p.atk += e.atk * gr.atk; p.def += e.def * gr.def; p.spd += e.spd * gr.spd;
+  healP(e.maxHp * 0.25);
+  const gt = addGenes(GENE_OF[e.el], has('mycelium') ? 1 : 0);
+  log(`EXP +${e.exp}，${gt}`, 'gene');
+  const exp = e.exp;
+  log('—— 戰鬥結束 ——', 'sys');
+  G.enemy = null; G.b = null; G.mode = 'explore';
+  gainExp(exp);
+  render();
+}
+
+/* =========================================================
+   十二、經驗與進化
+   ========================================================= */
+function gainExp(n){ G.p.exp += n; checkEvolve(); }
+function checkEvolve(){
+  const p = G.p;
+  if (G.mode === 'evolve' || G.mode === 'dead') return;
+  if (p.stage < 5 && p.exp >= expNeed()){
+    p.exp -= expNeed(); openEvolve();
+  } else if (p.stage === 5 && p.exp >= CONFIG.EMPOWER_EXP){
+    p.exp -= CONFIG.EMPOWER_EXP; p.empower++;
+    ['maxHp', 'atk', 'def', 'spd'].forEach(k => p[k] *= 1.08); healP(p.maxHp * 0.3);
+    log(`你的軀體再次膨脹。全數值 +8%（強化 ${p.empower} 次）`, 'good');
+    checkEvolve();
+  }
+}
+function makeMutations(){
+  const p = G.p, dom = dominantGene(), main = GENE_ELEMENTS[dom];
+  const other = pick(EL_KEYS.filter(x => !main.includes(x)));
+  const owned = [...p.actives, ...p.passives];
+  return [...main, other].map(el => {
+    const cand = Object.keys(SKILLS).filter(id => SKILLS[id].el === el && !owned.includes(id));
+    return { el, skill:cand.length ? pick(cand) : null, form:`${ELEMENTS[el].name}・${STAGES[p.stage]}` };
+  });
+}
+function openEvolve(){
+  const p = G.p;
+  G.mode = 'evolve';
+  const opts = makeMutations();
+  G.mutations = opts;
+  const dom = dominantGene();
+  let html = `<h2>基因突變</h2>
+    <p class="note">${STAGES[p.stage - 1]} → ${STAGES[p.stage]}。你體內最多的是${GENE_NAMES[dom]}基因，它主導了這次突變的方向。</p>`;
+  opts.forEach((o, i) => {
+    const s = o.skill ? SKILLS[o.skill] : null;
+    html += `<button class="card" data-i="${i}">
+      <div class="t"><span class="el-${o.el}">［${ELEMENTS[o.el].name}］</span>${o.form}</div>
+      <div class="d">${EL_BONUS[o.el].desc}</div>
+      <div class="d">${s ? `${s.type === 'active' ? '主動' : '被動'}技能「${s.name}」：${s.desc}${s.cost ? `（${s.cost} EN）` : ''}` : '這個屬性的技能你已全部掌握，改為額外攻擊 +5%'}</div>
+    </button>`;
+  });
+  html += `<p class="note">每次進化：生命 ×${CONFIG.EVOLVE_MULT.maxHp}、攻擊 ×${CONFIG.EVOLVE_MULT.atk}、防禦 ×${CONFIG.EVOLVE_MULT.def}、速度 ×${CONFIG.EVOLVE_MULT.spd}，並完全回復。你的屬性會變成所選的屬性。</p>`;
+  showOverlay(html);
+  $('ovIn').querySelectorAll('.card').forEach(c => c.onclick = () => chooseMutation(opts[+c.dataset.i]));
+}
+function chooseMutation(o){
+  const p = G.p, M = CONFIG.EVOLVE_MULT;
+  for (const k in M) p[k] *= M[k];
+  EL_BONUS[o.el].apply(p);
+  if (!o.skill) p.atk *= 1.05;
+  p.stage++; p.element = o.el; p.form = o.form;
+  p.hp = p.maxHp; p.en = p.maxEn;
+  log('', '');
+  log(`【進化】${pick(MUTATION_TEXT[o.el])}`, 'gene');
+  log(`你成為了${o.form}。`, 'good');
+  if (o.skill) learnSkill(o.skill); else finishEvolve();
+}
+function learnSkill(id){
+  const p = G.p, s = SKILLS[id];
+  const slot = s.type === 'active' ? p.actives : p.passives;
+  const cap = s.type === 'active' ? 4 : 3;
+  if (slot.length < cap){ slot.push(id); log(`你獲得了技能「${s.name}」。`, 'good'); finishEvolve(); return; }
+  // 技能欄滿了：選擇替換
+  let html = `<h2>技能欄已滿</h2><p class="note">新技能「${s.name}」：${s.desc}。選擇要替換掉的技能。</p>`;
+  slot.forEach((sid, i) => {
+    html += `<button class="card" data-i="${i}"><div class="t">替換「${SKILLS[sid].name}」</div><div class="d">${SKILLS[sid].desc}</div></button>`;
+  });
+  html += `<button class="card" data-i="-1"><div class="t">放棄新技能</div></button>`;
+  showOverlay(html);
+  $('ovIn').querySelectorAll('.card').forEach(c => c.onclick = () => {
+    const i = +c.dataset.i;
+    if (i >= 0){ log(`你遺忘了「${SKILLS[slot[i]].name}」，獲得了「${s.name}」。`, 'good'); slot[i] = id; }
+    else log(`你放棄了「${s.name}」。`, 'dim');
+    finishEvolve();
+  });
+}
+function finishEvolve(){
+  hideOverlay();
+  G.mode = 'explore';
+  if (G.p.stage === 5){
+    log('你已抵達進化的盡頭。深淵的最深處，有東西在等你。', 'omen');
+    log('現在你可以隨時挑戰古神。越早挑戰，分數越高。', 'info');
+  }
+  render();
+  checkEvolve();
+  render();
+}
+
+/* =========================================================
+   十三、最終頭目：古神
+   數值會依玩家強度調整，並有最低門檻（等級不夠就打不贏）
+   每 3 回合轉換一次屬性
+   ========================================================= */
+function startBoss(forced){
+  const p = G.p;
+  if (forced) log(`第 ${CONFIG.MAX_TURN} 回合。深淵的盡頭睜開了眼睛。`, 'omen');
+  else { log('> 挑戰古神', 'cmd'); log('你主動沉入深淵的最深處。', 'omen'); }
+  const myDmg = effAtk() * 1.4 * (1 - 30 / 80);
+  const needAtk = (p.maxHp / 12) / (1 - effDef() / (effDef() + 50));
+  const boss = {
+    name:'古神・無名之軀', isBoss:true, stage:5, el:pick(EL_KEYS),
+    maxHp:Math.max(1400, myDmg * 18), atk:Math.max(85, needAtk), def:30, spd:Math.max(40, effSpd() * 0.95),
+    st:{ poison:0, bleed:0, weak:0 }, elKnown:false, charging:false, tier:4,
+  };
+  boss.hp = boss.maxHp;
+  G.enemy = boss;
+  log(pick(DESC.size[4])); log(pick(DESC.sound[4])); log(pick(EL_CLUES[boss.el]));
+  log('這一次，無處可逃。', 'bad');
+  startBattle(false);
+}
+
+/* =========================================================
+   十四、結算、分數與輪迴繼承
+   ========================================================= */
+function calcScore(won){
+  const p = G.p;
+  let s = p.kills * 10 + p.stage * 300 + p.empower * 200 + p.turn;
+  if (won) s += 5000 + Math.max(0, CONFIG.MAX_TURN - p.turn) * 10; // 提早通關加分
+  return s;
+}
+// 隨機抽一項可以繼承的能力
+function rollLegacy(){
+  const p = G.p, owned = [...p.actives, ...p.passives], pool = [];
+  if (owned.length) pool.push(() => { const id = pick(owned); return { type:'skill', id, text:`技能「${SKILLS[id].name}」` }; });
+  pool.push(() => { const k = pick(['maxHp', 'atk', 'def', 'spd']); return { type:'stat', k, text:`${STAT_NAMES[k]} +15%` }; });
+  pool.push(() => { const g = dominantGene(); return { type:'gene', g, text:`${GENE_NAMES[g]}基因 +6` }; });
+  pool.push(() => ({ type:'exp', text:'血脈記憶：開局 EXP +70' }));
+  return pick(pool)();
+}
+function applyLegacies(p){
+  SAVE.legacies.forEach(l => {
+    if (l.type === 'skill'){
+      const s = SKILLS[l.id]; const slot = s.type === 'active' ? p.actives : p.passives;
+      if (!slot.includes(l.id) && slot.length < (s.type === 'active' ? 4 : 3)) slot.push(l.id);
+    }
+    if (l.type === 'stat'){ p[l.k] *= 1.15; if (l.k === 'maxHp') p.hp = p.maxHp; }
+    if (l.type === 'gene') p.genes[l.g] += 6;
+    if (l.type === 'exp') p.exp += 70;
+  });
+}
+function die(){
+  G.mode = 'dead';
+  log('你的意識沉入黑暗……', 'bad');
+  render();
+  setTimeout(() => endScreen(false), 700);
+}
+function win(){
+  G.mode = 'dead';
+  log('古神的軀體崩解了。你張開口器，把它整個吞了下去。', 'good');
+  render();
+  setTimeout(() => endScreen(true), 700);
+}
+function endScreen(won){
+  const p = G.p, score = calcScore(won);
+  const isBest = score > SAVE.best;
+  SAVE.best = Math.max(SAVE.best, score); SAVE.rebirths++; writeSave(SAVE);
+  const lg = rollLegacy();
+  const old = SAVE.legacies.map(l => l.text).join('、');
+  let html = won
+    ? `<h2>你吞噬了古神</h2><p>深淵從此只剩下一個存在：你。</p>`
+    : `<h2>你被吞噬了</h2><p>${p.form}的軀體，成了另一隻生物的養分。</p>`;
+  html += `<p class="note">存活 ${p.turn} 回合・吞噬 ${p.kills} 隻・第 ${p.stage} 階</p>
+    <p>分數 <b>${score}</b>${isBest ? '　新紀錄' : ''}　（最高 ${SAVE.best}）</p>
+    <p style="margin-top:18px">你的基因留下了一絲殘響：<b class="warn">${lg.text}</b></p>
+    ${old ? `<p class="note">目前的繼承：${old}（最多 ${CONFIG.MAX_LEGACY} 項，超過時移除最舊的）</p>` : ''}
+    <div class="btns">
+      <button class="act" id="bKeep">繼承並重生</button>
+      ${old ? '<button class="act" id="bOld">不要新的，只保留舊繼承</button>' : ''}
+      <button class="act" id="bClear">捨棄所有繼承，完全重來</button>
+    </div>`;
+  showOverlay(html);
+  $('bKeep').onclick = () => { SAVE.legacies.push(lg); while (SAVE.legacies.length > CONFIG.MAX_LEGACY) SAVE.legacies.shift(); writeSave(SAVE); newGame(); };
+  if ($('bOld')) $('bOld').onclick = () => newGame();
+  $('bClear').onclick = () => { SAVE.legacies = []; writeSave(SAVE); newGame(); };
+}
+
+/* =========================================================
+   十五、全螢幕面板：標題、說明、技能
+   ========================================================= */
+function showOverlay(html){ $('ovIn').innerHTML = html; $('ov').classList.add('show'); $('ov').scrollTop = 0; }
+function hideOverlay(){ $('ov').classList.remove('show'); }
+
+function showTitle(){
+  const lg = SAVE.legacies.map(l => l.text).join('、');
+  showOverlay(`
+    <div class="title-word">吞噬</div>
+    <p>一顆孢子，${CONFIG.MAX_TURN} 個回合，一個古神。</p>
+    <p class="note">輪迴 ${SAVE.rebirths} 次・最高分 ${SAVE.best}</p>
+    ${lg ? `<p class="note">本次繼承：${lg}</p>` : ''}
+    <div class="btns">
+      <button class="act" id="tStart">開始進化</button>
+      <button class="act" id="tHelp">遊戲說明</button>
+      ${SAVE.rebirths ? '<button class="act" id="tReset">清除輪迴紀錄</button>' : ''}
+    </div>`);
+  $('tStart').onclick = () => { hideOverlay(); newGame(); };
+  $('tHelp').onclick = () => showHelp(true);
+  if ($('tReset')) $('tReset').onclick = () => { SAVE = { rebirths:0, best:0, legacies:[] }; writeSave(SAVE); showTitle(); };
+}
+
+function showHelp(fromTitle){
+  showOverlay(`<div class="help">
+    <h2>遊戲說明</h2>
+    <h3>目標</h3>
+    <p>在 ${CONFIG.MAX_TURN} 回合內進化到「古神眷屬」，然後擊敗古神。第 ${CONFIG.MAX_TURN} 回合會強制決戰；到達第 5 階後可以提前挑戰，越早贏分數越高。</p>
+    <h3>盲盒對戰</h3>
+    <ul>
+      <li>敵人的數值完全隱藏，只能從體型、外殼、黏液、聲音、本能等描述判斷強弱。</li>
+      <li>「觀察」每次多看清一個細節，最後一次會看出屬性，但每多看一次，驚動它的機率就越高：強的會撲上來先手攻擊，弱的會直接逃走。一次遭遇最多看清 4 項細節。</li>
+      <li>部分生物會擬態，外表和真實強度不符。感知越高，越容易看到真相；描述前後矛盾時要小心。</li>
+    </ul>
+    <h3>屬性相剋</h3>
+    <p class="cycle"><span class="el-flesh">血肉</span> 剋 <span class="el-spore">孢菌</span> 剋 <span class="el-void">虛空</span> 剋 <span class="el-crystal">晶能</span> 剋 <span class="el-shell">甲殼</span> 剋 <span class="el-flesh">血肉</span></p>
+    <p>剋制時傷害 ×1.5，被剋時 ×0.67。你一開始沒有屬性，第一次進化時決定。古神每 3 回合會轉換一次屬性。</p>
+    <h3>速度</h3>
+    <p>速度高的先出手，並提高閃避與逃跑率。速度達到對手兩倍時，普通攻擊會追加一擊。</p>
+    <h3>基因與進化</h3>
+    <p>吞噬生物和資源會累積基因：肉食提高暴擊，植物提高再生，結晶提高感知。EXP 滿了就會突變，最多的基因決定可選的方向。</p>
+    <h3>敵人的蓄力</h3>
+    <p>描述出現異常變化時，代表它在蓄力，下一擊是兩倍傷害，還可能震暈你。這時候可以用硬化或相位轉移應對。</p>
+    <h3>死亡與輪迴</h3>
+    <p>死亡後會隨機抽一項能力（技能、數值、基因或 EXP）讓你繼承到下一輪，最多保留 ${CONFIG.MAX_LEGACY} 項。你也可以選擇完全重來。</p>
+    <p class="note">快捷鍵：數字鍵 1–9 對應下方按鈕。</p>
+    <div class="btns"><button class="act" id="hBack">返回</button></div>
+  </div>`);
+  $('hBack').onclick = () => fromTitle ? showTitle() : hideOverlay();
+}
+
+function showSkills(){
+  const p = G.p;
+  const row = id => { const s = SKILLS[id]; return `<div class="card" style="cursor:default"><div class="t"><span class="el-${s.el}">［${ELEMENTS[s.el].name}］</span>${s.name}${s.cost ? `　${s.cost} EN` : ''}</div><div class="d">${s.desc}</div></div>`; };
+  showOverlay(`<h2>技能</h2>
+    <p class="note">主動 ${p.actives.length}/4</p>${p.actives.map(row).join('') || '<p class="note">還沒有主動技能，進化時可以獲得。</p>'}
+    <p class="note">被動 ${p.passives.length}/3</p>${p.passives.map(row).join('') || '<p class="note">還沒有被動技能。</p>'}
+    <div class="btns"><button class="act" id="sBack">返回</button></div>`);
+  $('sBack').onclick = hideOverlay;
+}
+
+/* =========================================================
+   十六、開新局
+   ========================================================= */
+function newGame(){
+  hideOverlay();
+  G = { p:newPlayer(), mode:'explore', enemy:null, b:null, evt:null };
+  applyLegacies(G.p);
+  $('log').innerHTML = '';
+  log('你在黏稠的黑暗中醒來。');
+  log('你只是一顆蠕動的孢子，但你很餓。');
+  log(`吞噬一切，不斷進化，然後在第 ${CONFIG.MAX_TURN} 回合迎接深淵盡頭的那個存在。`, 'omen');
+  if (SAVE.legacies.length) log(`前世的殘響在你體內甦醒：${SAVE.legacies.map(l => l.text).join('、')}`, 'gene');
+  render();
+  checkEvolve();
+}
+
+// 數字鍵快捷操作
+document.addEventListener('keydown', ev => {
+  if ($('ov').classList.contains('show') || !G) return;
+  const n = parseInt(ev.key, 10);
+  if (n >= 1 && n <= 9){
+    const btn = $('actions').children[n - 1];
+    if (btn && !btn.disabled) btn.click();
+  }
+});
+
+// 啟動：先顯示標題畫面
+G = { p:newPlayer(), mode:'explore', enemy:null, b:null, evt:null };
+render();
+showTitle();
+</script>
+</body>
+</html>
